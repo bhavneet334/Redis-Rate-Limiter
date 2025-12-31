@@ -12,6 +12,15 @@ function rateLimiter(redisClient) {
         await redisClient.expire(key, WINDOW_SECONDS);
       }
 
+      const ttl = await redisClient.ttl(key);
+      const remaining = Math.max(RATE_LIMIT - currentCount, 0);
+
+      res.set({
+        "X-RateLimit-Limit": RATE_LIMIT,
+        "X-RateLimit-Remaining": remaining,
+        "X-RateLimit-Reset": ttl,
+      });
+
       if (currentCount > RATE_LIMIT) {
         return res.status(429).json({
           message: "You have hit the rate limit. Please try again later.",
@@ -23,7 +32,6 @@ function rateLimiter(redisClient) {
       next();
     }
   };
-};
+}
 
 module.exports.rateLimiter = rateLimiter;
-
