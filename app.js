@@ -1,33 +1,17 @@
 const express = require("express");
 const { createClient } = require("redis");
+const { rateLimiter } = require("./middlewares/rateLimiter");
+
 const app = express();
 
 const redisClient = createClient();
 
 redisClient.connect();
-redisClient.on("error", (err) => console.log("Redis error", err));
+redisClient.on("error", (err) => {
+  console.error("Redis error", err);
+});
 
-const RATE_LIMIT = 5;
-const WINDOW_SECONDS = 60;
-
-async function rateLimiter(req, res, next) {
-  const ip = req.ip;
-  const key = `rate_limit:${ip}`;
-
-  const currentCount = await redisClient.incr(key);
-  if (currentCount === 1) {
-    await redisClient.expire(key, WINDOW_SECONDS);
-  }
-
-  if (currentCount > RATE_LIMIT) {
-    return res.status(429).json({
-      message: "You have hit the rate limit. Please try again later.",
-    });
-  }
-  next();
-}
-
-app.get("/test", rateLimiter, (req, res) => {
+app.get("/test", rateLimiter(redisClient), (req, res) => {
   return res.send("Request successful");
 });
 
